@@ -1,9 +1,9 @@
 # Generic YOLOv11 detection (CVAT serverless)
 
-Template Nuclio function: **Ultralytics YOLO object detection** → CVAT **rectangle** JSON, in the same spirit as [`../yolo-pose`](../yolo-pose). Paths below are relative to this repo’s `yolov11>/` directory (quote the folder name in shell: `"yolov11>"`).
+Template Nuclio function: **Ultralytics YOLO object detection** → CVAT **rectangle** JSON, in the same spirit as [`../generic-yolo-pose`](../generic-yolo-pose) and your existing [`../yolov11`](../yolov11) example.
 
-- **`function.yaml`** — CPU (`ultralytics:latest-cpu`).
-- **`function-gpu.yaml`** — GPU; copy to `function.yaml` inside the ZIP for dashboard deploy.
+- **`function.yaml`** — CPU (`python:3.11-slim`, PyTorch CPU wheels, Ultralytics via pip; matches Nuclio `python:3.11` runtime).
+- **`function-gpu.yaml`** — GPU (CUDA 12.4 PyTorch wheels); copy to `function.yaml` inside the ZIP for dashboard deploy.
 
 ## Layout
 
@@ -22,19 +22,19 @@ Template Nuclio function: **Ultralytics YOLO object detection** → CVAT **recta
 
 ## Deploy (Nuclio dashboard)
 
-Same pattern as [yolo-pose README](../yolo-pose/README.md): zip must contain **`function.yaml`** at the root, plus `main.py` and `weights/best.pt`.
+Same pattern as [generic-yolo-pose README](../generic-yolo-pose/README.md): zip must contain **`function.yaml`** at the root, plus `main.py` and `weights/best.pt`.
 
 **CPU**
 
 ```bash
-cd "yolov11>/nuclio"
+cd serverless/custom/generic-yolov11/nuclio
 zip -r "$HOME/generic-yolov11-cpu.zip" function.yaml main.py weights/best.pt
 ```
 
 **GPU**
 
 ```bash
-cd "yolov11>/nuclio"
+cd serverless/custom/generic-yolov11/nuclio
 tmp=$(mktemp -d)
 cp function-gpu.yaml "$tmp/function.yaml"
 cp main.py "$tmp/"
@@ -63,13 +63,13 @@ Open [http://localhost:8070](http://localhost:8070), project **`cvat`**, create/
 - **Request**: `{"image": "<base64>", "threshold": 0.3}` (`threshold` optional).
 - **Response**: JSON list of `{ "type": "rectangle", "label", "confidence" (string), "points": [x1,y1,x2,y2] }`.
 
-## Differences vs a minimal YOLO example
+## Differences vs `custom/yolov11`
 
-| | Minimal example | This function |
-|---|-----------------|---------------|
-| Device | Often hard-coded CPU | `DEVICE` (`auto` on GPU YAML) |
-| Weights | Fixed filename in repo | `MODEL_PATH` + build `copy` |
-| NMS | Varies | Optional **class-aware** `torchvision.ops.batched_nms` via `POST_NMS` |
+| | `yolov11` | `generic-yolov11` |
+|---|-----------|-------------------|
+| Device | `DEVICE` env (`auto` default on GPU manifest) | `DEVICE` (`cpu` on CPU YAML, `auto` on GPU YAML) |
+| Weights path | `weights/yolov11s.pt` | `MODEL_PATH` + build `copy` |
+| NMS | Class-aware `torchvision.ops.batched_nms` | Same; toggle with `POST_NMS` |
 | Config | Fixed in code | Env + YAML |
 
-Optional CLI bulk deploy: use CVAT’s `serverless/deploy_cpu.sh` / `deploy_gpu.sh` with this `nuclio/` tree, or dashboard ZIP as above.
+Optional CLI bulk deploy: [`serverless/deploy_cpu.sh`](../../deploy_cpu.sh) / [`deploy_gpu.sh`](../../deploy_gpu.sh) glob `function.yaml` / `function-gpu.yaml`.

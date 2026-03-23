@@ -20,13 +20,17 @@ spec:
 
   build:
     image: cvat.pth.ultralytics.generic-yolov11-gpu
-    baseImage: ultralytics/ultralytics:latest
+    baseImage: python:3.11-slim
     directives:
       preCopy:
         - kind: USER
           value: root
         - kind: RUN
-          value: apt update && apt install --no-install-recommends -y libglib2.0-0
+          value: apt-get update && apt-get install --no-install-recommends -y libglib2.0-0 libgl1 libsm6 libxext6 libxrender1 && rm -rf /var/lib/apt/lists/*
+        - kind: RUN
+          value: pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu124
+        - kind: RUN
+          value: pip install --no-cache-dir ultralytics numpy pillow
         - kind: WORKDIR
           value: /opt/nuclio
 
@@ -69,3 +73,4 @@ spec:
         name: always
         maximumRetryCount: 3
       mountMode: volume
+      network: cvat_cvat
