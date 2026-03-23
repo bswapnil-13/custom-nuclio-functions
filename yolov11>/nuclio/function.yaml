@@ -51,10 +51,14 @@ spec:
     #   value: "detect"
     - name: BOX_CONF_THRESHOLD
       value: "0.3"
-    - name: POST_NMS
+    - name: YOLO_IOU
+      value: "0.55"
+    - name: YOLO_AGNOSTIC_NMS
       value: "1"
+    - name: POST_NMS
+      value: "0"
     - name: NMS_IOU_THRESHOLD
-      value: "0.4"
+      value: "0.45"
 
   triggers:
     myHttpTrigger:

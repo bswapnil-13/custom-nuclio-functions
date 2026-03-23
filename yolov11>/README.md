@@ -54,13 +54,15 @@ Open [http://localhost:8070](http://localhost:8070), project **`cvat`**, create/
 | `DEVICE` | `cpu`, `auto`, or `cuda` / `cuda:0`, … |
 | `YOLO_TASK` | Optional; e.g. `detect`. If **unset**, `YOLO(path)` only (Ultralytics infers). |
 | `BOX_CONF_THRESHOLD` | Default `conf` if the request omits `threshold` |
-| `POST_NMS` | `1` — apply extra **batched_nms** after YOLO (like `yolov11/main.py`); `0` — use only Ultralytics output |
-| `NMS_IOU_THRESHOLD` | IoU threshold for `POST_NMS` (default `0.4`) |
+| `YOLO_IOU` | IoU for **Ultralytics** built-in NMS (code default `0.7`; YAML uses `0.55` for tighter merge) |
+| `YOLO_AGNOSTIC_NMS` | `1` — NMS across classes (helps when the same object gets multiple class boxes) |
+| `POST_NMS` | `1` — extra **torchvision batched_nms** after YOLO; `0` (default in code/YAML) — Ultralytics NMS only |
+| `NMS_IOU_THRESHOLD` | IoU for optional `POST_NMS` (default `0.45` in code) |
 | `ULTRA_VERBOSE` | `1` — verbose Ultralytics predict logs |
 
 ## Request / response
 
-- **Request**: `{"image": "<base64>", "threshold": 0.3}` (`threshold` optional).
+- **Request**: `{"image": "<base64>", "threshold": 0.3, "iou": 0.55}` (`threshold` / `iou` optional; `iou` overrides `YOLO_IOU`).
 - **Response**: JSON list of `{ "type": "rectangle", "label", "confidence" (string), "points": [x1,y1,x2,y2] }`.
 
 ## Differences vs `custom/yolov11`
@@ -69,7 +71,7 @@ Open [http://localhost:8070](http://localhost:8070), project **`cvat`**, create/
 |---|-----------|-------------------|
 | Device | `DEVICE` env (`auto` default on GPU manifest) | `DEVICE` (`cpu` on CPU YAML, `auto` on GPU YAML) |
 | Weights path | `weights/yolov11s.pt` | `MODEL_PATH` + build `copy` |
-| NMS | Class-aware `torchvision.ops.batched_nms` | Same; toggle with `POST_NMS` |
+| NMS | `YOLO_IOU`, `YOLO_AGNOSTIC_NMS`, optional `POST_NMS` | Same knobs + `MODEL_PATH` |
 | Config | Fixed in code | Env + YAML |
 
 Optional CLI bulk deploy: [`serverless/deploy_cpu.sh`](../../deploy_cpu.sh) / [`deploy_gpu.sh`](../../deploy_gpu.sh) glob `function.yaml` / `function-gpu.yaml`.
