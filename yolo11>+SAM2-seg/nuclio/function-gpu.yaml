@@ -1,0 +1,85 @@
+metadata:
+  name: custom-yolov11-sam2-seg
+  namespace: cvat
+  annotations:
+    name: YOLO v11 + SAM2 Segmentation
+    type: detector
+    framework: pytorch
+    spec: |
+      [
+        { "id": 0, "name": "l1" },
+        { "id": 1, "name": "l2" },
+        { "id": 2, "name": "l3" },
+        { "id": 3, "name": "l4" },
+        { "id": 4, "name": "l5" }
+      ]
+
+spec:
+  description: YOLO v11 detector with SAM2 instance segmentation masks
+  runtime: 'python:3.10'
+  handler: main:handler
+  eventTimeout: 60s
+  env:
+    - name: PYTHONPATH
+      value: /opt/nuclio/sam2
+
+  build:
+    image: cvat.pth.ultralytics.yolov11.sam2
+    baseImage: ubuntu:22.04
+
+    directives:
+      preCopy:
+        # set NVIDIA container runtime settings
+        - kind: ENV
+          value: NVIDIA_VISIBLE_DEVICES=all
+        - kind: ENV
+          value: NVIDIA_DRIVER_CAPABILITIES=compute,utility
+        # disable interactive frontend
+        - kind: ENV
+          value: DEBIAN_FRONTEND=noninteractive
+        # set workdir
+        - kind: WORKDIR
+          value: /opt/nuclio
+        # install basic deps
+        - kind: RUN
+          value: apt-get update && apt-get -y install curl git python3 python3-pip ffmpeg libsm6 libxext6 libglib2.0-0
+        # install PyTorch with CUDA 12.4 support
+        - kind: RUN
+          value: pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+        # install ultralytics for YOLO
+        - kind: RUN
+          value: pip3 install ultralytics numpy pillow opencv-python
+        # install sam2 dependencies
+        - kind: RUN
+          value: pip3 install pycocotools matplotlib onnxruntime onnx
+        # install sam2 code
+        - kind: RUN
+          value: pip3 install git+https://github.com/facebookresearch/sam2.git@c2ec8e14a185632b0a5d8b161928ceb50197eddc
+        # create sam2 weights directory
+        - kind: RUN
+          value: mkdir -p /opt/nuclio/sam2
+        # download sam2 weights (using tiny model for 6GB VRAM GPUs like GTX 1660 Ti)
+        - kind: RUN
+          value: curl -o /opt/nuclio/sam2/sam2.1_hiera_tiny.pt https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt
+        # map pip3 and python3 to pip and python
+        - kind: RUN
+          value: ln -s /usr/bin/pip3 /usr/local/bin/pip && ln -s /usr/bin/python3 /usr/bin/python
+
+  triggers:
+    myHttpTrigger:
+      maxWorkers: 1
+      kind: 'http'
+      workerAvailabilityTimeoutMilliseconds: 10000
+      attributes:
+        maxRequestBodySize: 33554432 # 32MB
+
+  resources:
+    limits:
+      nvidia.com/gpu: 1
+
+  platform:
+    attributes:
+      restartPolicy:
+        name: always
+        maximumRetryCount: 3
+      mountMode: volume

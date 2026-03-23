@@ -1,0 +1,69 @@
+# CPU manifest for Nuclio dashboard: zip with main.py and weights/best.pt (see README).
+# GPU: copy function-gpu.yaml to function.yaml in your zip.
+metadata:
+  name: generic-yolov11-cpu
+  namespace: cvat
+  annotations:
+    name: Generic YOLOv11 detect (CPU)
+    type: detector
+    framework: pytorch
+    spec: |
+      [
+        { "id": 0, "name": "class_a" },
+        { "id": 1, "name": "class_b" }
+      ]
+
+spec:
+  runtime: "python:3.11"
+  handler: main:handler
+  eventTimeout: 30s
+  description: "Configurable YOLO detection → CVAT rectangles (CPU). Replace metadata.annotations.spec with your class names."
+
+  build:
+    image: cvat.pth.ultralytics.generic-yolov11-cpu
+    baseImage: ultralytics/ultralytics:latest-cpu
+    directives:
+      preCopy:
+        - kind: USER
+          value: root
+        - kind: RUN
+          value: apt update && apt install --no-install-recommends -y libglib2.0-0
+        - kind: WORKDIR
+          value: /opt/nuclio
+
+    copy:
+      - src: ./weights/best.pt
+        dest: /opt/nuclio/weights/best.pt
+
+  env:
+    - name: MODEL_PATH
+      value: "/opt/nuclio/weights/best.pt"
+    - name: DEVICE
+      value: "cpu"
+    # Optional: e.g. detect, segment — omit to let Ultralytics infer from the checkpoint
+    # - name: YOLO_TASK
+    #   value: "detect"
+    - name: BOX_CONF_THRESHOLD
+      value: "0.3"
+    - name: POST_NMS
+      value: "1"
+    - name: NMS_IOU_THRESHOLD
+      value: "0.4"
+
+  triggers:
+    myHttpTrigger:
+      maxWorkers: 1
+      kind: "http"
+      workerAvailabilityTimeoutMilliseconds: 10000
+      attributes:
+        maxRequestBodySize: 33554432
+
+  resources:
+    limits: {}
+
+  platform:
+    attributes:
+      restartPolicy:
+        name: always
+        maximumRetryCount: 3
+      mountMode: volume

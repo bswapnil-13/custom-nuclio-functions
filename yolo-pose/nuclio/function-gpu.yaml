@@ -1,0 +1,83 @@
+# Deploy on a GPU Nuclio/K8s profile. Same handler as CPU; requests may still pass "threshold".
+# GPU variant: for dashboard deploy, copy this file to function.yaml in your zip (Nuclio requires that name).
+metadata:
+  name: generic-yolo-pose-gpu
+  namespace: cvat
+  annotations:
+    name: Generic YOLO pose (GPU)
+    type: detector
+    framework: pytorch
+    spec: |
+      [
+        {
+          "id": 0,
+          "name": "skeleton_pose",
+          "type": "skeleton",
+          "svg": "",
+          "sublabels": [
+            { "id": 0, "name": "1", "type": "points" },
+            { "id": 1, "name": "2", "type": "points" }
+          ]
+        }
+      ]
+
+spec:
+  runtime: "python:3.11"
+  handler: main:handler
+  eventTimeout: 30s
+  description: "Configurable YOLO pose → CVAT skeleton (GPU). Replace metadata.spec with your task labels."
+
+  build:
+    image: cvat.pth.ultralytics.generic-yolo-pose-gpu
+    baseImage: ultralytics/ultralytics:latest
+    directives:
+      preCopy:
+        - kind: USER
+          value: root
+        - kind: RUN
+          value: apt update && apt install --no-install-recommends -y libglib2.0-0
+        - kind: WORKDIR
+          value: /opt/nuclio
+
+    copy:
+      - src: ./weights/best.pt
+        dest: /opt/nuclio/weights/best.pt
+
+  env:
+    - name: MODEL_PATH
+      value: "/opt/nuclio/weights/best.pt"
+    - name: DEVICE
+      value: "auto"
+    - name: YOLO_TASK
+      value: "pose"
+    - name: SKELETON_LABEL
+      value: "skeleton_pose"
+    - name: BOX_CONF_THRESHOLD
+      value: "0.5"
+    - name: KEYPOINT_CONF_THRESHOLD
+      value: "0.5"
+    - name: INTEGER_COORDS
+      value: "0"
+    - name: KEYPOINT_OUTSIDE
+      value: "1"
+    - name: PYTHONUNBUFFERED
+      value: "1"
+
+  triggers:
+    myHttpTrigger:
+      maxWorkers: 1
+      kind: "http"
+      workerAvailabilityTimeoutMilliseconds: 10000
+      attributes:
+        maxRequestBodySize: 33554432
+
+  resources:
+    limits:
+      nvidia.com/gpu: 1
+
+  platform:
+    attributes:
+      restartPolicy:
+        name: always
+        maximumRetryCount: 3
+      mountMode: volume

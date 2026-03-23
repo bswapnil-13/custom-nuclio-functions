@@ -1,0 +1,83 @@
+# Default CPU manifest for Nuclio dashboard: zip this file as function.yaml with main.py and weights/.
+# For GPU, use function-gpu.yaml as the source: copy it to function.yaml in your zip (see README).
+metadata:
+  name: generic-yolo-pose-cpu
+  namespace: cvat
+  annotations:
+    name: Generic YOLO pose (CPU)
+    type: detector
+    framework: pytorch
+    spec: |
+      [
+        {
+          "id": 0,
+          "name": "skeleton_pose",
+          "type": "skeleton",
+          "svg": "",
+          "sublabels": [
+            { "id": 0, "name": "1", "type": "points" },
+            { "id": 1, "name": "2", "type": "points" }
+          ]
+        }
+      ]
+
+spec:
+  runtime: "python:3.11"
+  handler: main:handler
+  eventTimeout: 30s
+  description: "Configurable YOLO pose → CVAT skeleton (CPU). Replace metadata.spec with your task labels."
+
+  build:
+    image: cvat.pth.ultralytics.generic-yolo-pose-cpu
+    baseImage: ultralytics/ultralytics:latest-cpu
+    directives:
+      preCopy:
+        - kind: USER
+          value: root
+        - kind: RUN
+          value: apt update && apt install --no-install-recommends -y libglib2.0-0
+        - kind: WORKDIR
+          value: /opt/nuclio
+
+    copy:
+      - src: ./weights/best.pt
+        dest: /opt/nuclio/weights/best.pt
+
+  env:
+    - name: MODEL_PATH
+      value: "/opt/nuclio/weights/best.pt"
+    - name: DEVICE
+      value: "cpu"
+    - name: YOLO_TASK
+      value: "pose"
+    - name: SKELETON_LABEL
+      value: "skeleton_pose"
+    - name: BOX_CONF_THRESHOLD
+      value: "0.5"
+    - name: KEYPOINT_CONF_THRESHOLD
+      value: "0.5"
+    - name: INTEGER_COORDS
+      value: "0"
+    - name: KEYPOINT_OUTSIDE
+      value: "0"
+    # Optional: JSON array of sublabel names in model order, e.g. ["nose","eye_left",...]
+    # - name: KEYPOINT_NAMES
+    #   value: '["kp0","kp1"]'
+
+  triggers:
+    myHttpTrigger:
+      maxWorkers: 1
+      kind: "http"
+      workerAvailabilityTimeoutMilliseconds: 10000
+      attributes:
+        maxRequestBodySize: 33554432
+
+  resources:
+    limits: {}
+
+  platform:
+    attributes:
+      restartPolicy:
+        name: always
+        maximumRetryCount: 3
+      mountMode: volume
