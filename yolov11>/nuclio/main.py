@@ -18,8 +18,8 @@ from ultralytics import YOLO
 _DEFAULT_MODEL_PATH = "/opt/nuclio/weights/best.pt"
 _DEFAULT_DEVICE = "auto"
 _DEFAULT_BOX_CONF = "0.3"
-_DEFAULT_POST_NMS = "0"
-_DEFAULT_NMS_IOU = "0.45"
+_DEFAULT_POST_NMS = "1"
+_DEFAULT_NMS_IOU = "0.4"
 _DEFAULT_YOLO_IOU = "0.7"
 _DEFAULT_AGNOSTIC_NMS = "0"
 _DEFAULT_VERBOSE = "0"
@@ -169,8 +169,7 @@ def handler(context, event):
         if ud.post_nms:
             boxes_t = torch.tensor(boxes, dtype=torch.float32, device=nms_dev)
             scores_t = torch.tensor(scores, dtype=torch.float32, device=nms_dev)
-            labels_t = torch.tensor(labels, dtype=torch.long, device=nms_dev)
-            keep = ops.batched_nms(boxes_t, scores_t, labels_t, ud.nms_iou)
+            keep = ops.nms(boxes_t, scores_t, ud.nms_iou)
             indices = [i.item() for i in keep]
         else:
             indices = list(range(len(boxes)))

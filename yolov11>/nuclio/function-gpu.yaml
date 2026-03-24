@@ -13,30 +13,22 @@ metadata:
       ]
 
 spec:
-  runtime: "python:3.11"
+  runtime: "python:3.12"
   handler: main:handler
   eventTimeout: 30s
   description: "Configurable YOLO detection → CVAT rectangles (GPU). Replace metadata.annotations.spec with your class names."
 
   build:
     image: cvat.pth.ultralytics.generic-yolov11-gpu
-    baseImage: python:3.11-slim
+    baseImage: ultralytics/ultralytics
     directives:
       preCopy:
         - kind: USER
           value: root
         - kind: RUN
-          value: apt-get update && apt-get install --no-install-recommends -y libglib2.0-0 libgl1 libsm6 libxext6 libxrender1 && rm -rf /var/lib/apt/lists/*
-        - kind: RUN
-          value: pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu124
-        - kind: RUN
-          value: pip install --no-cache-dir ultralytics numpy pillow
+          value: apt update && apt install --no-install-recommends -y libglib2.0-0
         - kind: WORKDIR
           value: /opt/nuclio
-
-    copy:
-      - src: ./weights/best.pt
-        dest: /opt/nuclio/weights/best.pt
 
   env:
     - name: MODEL_PATH
@@ -53,9 +45,9 @@ spec:
     - name: YOLO_AGNOSTIC_NMS
       value: "1"
     - name: POST_NMS
-      value: "0"
+      value: "1"
     - name: NMS_IOU_THRESHOLD
-      value: "0.45"
+      value: "0.4"
     - name: PYTHONUNBUFFERED
       value: "1"
 

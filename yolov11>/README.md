@@ -2,21 +2,21 @@
 
 Template Nuclio function: **Ultralytics YOLO object detection** → CVAT **rectangle** JSON, in the same spirit as [`../generic-yolo-pose`](../generic-yolo-pose) and your existing [`../yolov11`](../yolov11) example.
 
-- **`function.yaml`** — CPU (`python:3.11-slim`, PyTorch CPU wheels, Ultralytics via pip; matches Nuclio `python:3.11` runtime).
-- **`function-gpu.yaml`** — GPU (CUDA 12.4 PyTorch wheels); copy to `function.yaml` inside the ZIP for dashboard deploy.
+- **`function.yaml`** — CPU (`ultralytics/ultralytics:latest-cpu` base image; Nuclio `python:3.12` runtime).
+- **`function-gpu.yaml`** — GPU (`ultralytics/ultralytics` base image with CUDA); copy to `function.yaml` inside the ZIP for dashboard deploy.
 
 ## Layout
 
 | Path | Purpose |
 |------|---------|
-| `nuclio/main.py` | Handler + optional **post-NMS** (`torchvision.ops.batched_nms`, class-aware) |
+| `nuclio/main.py` | Handler + **post-NMS** (`torchvision.ops.nms`, class-agnostic) |
 | `nuclio/function.yaml` | CPU manifest |
 | `nuclio/function-gpu.yaml` | GPU manifest |
-| `nuclio/weights/best.pt` | **You provide** (or change `spec.build.copy` + `MODEL_PATH`) |
+| `nuclio/weights/best.pt` | **You provide** (or change `MODEL_PATH`) |
 
 ## Before deploy
 
-1. Put weights at `nuclio/weights/best.pt` (or adjust copy + `MODEL_PATH`).
+1. Put weights at `nuclio/weights/best.pt` (or adjust `MODEL_PATH`).
 2. Replace `metadata.annotations.spec` with your CVAT label list (`id` / `name` per class); names must match the model’s class names (`result.names`).
 3. Adjust `metadata.name` / `namespace` if your Nuclio project differs from `cvat`.
 
@@ -56,8 +56,8 @@ Open [http://localhost:8070](http://localhost:8070), project **`cvat`**, create/
 | `BOX_CONF_THRESHOLD` | Default `conf` if the request omits `threshold` |
 | `YOLO_IOU` | IoU for **Ultralytics** built-in NMS (code default `0.7`; YAML uses `0.55` for tighter merge) |
 | `YOLO_AGNOSTIC_NMS` | `1` — NMS across classes (helps when the same object gets multiple class boxes) |
-| `POST_NMS` | `1` — extra **torchvision batched_nms** after YOLO; `0` (default in code/YAML) — Ultralytics NMS only |
-| `NMS_IOU_THRESHOLD` | IoU for optional `POST_NMS` (default `0.45` in code) |
+| `POST_NMS` | `1` (default) — extra **torchvision nms** (class-agnostic) after YOLO; `0` — Ultralytics NMS only |
+| `NMS_IOU_THRESHOLD` | IoU for `POST_NMS` (default `0.4`) |
 | `ULTRA_VERBOSE` | `1` — verbose Ultralytics predict logs |
 
 ## Request / response
@@ -70,7 +70,7 @@ Open [http://localhost:8070](http://localhost:8070), project **`cvat`**, create/
 | | `yolov11` | `generic-yolov11` |
 |---|-----------|-------------------|
 | Device | `DEVICE` env (`auto` default on GPU manifest) | `DEVICE` (`cpu` on CPU YAML, `auto` on GPU YAML) |
-| Weights path | `weights/yolov11s.pt` | `MODEL_PATH` + build `copy` |
+| Weights path | `weights/yolov11s.pt` | `MODEL_PATH` env var |
 | NMS | `YOLO_IOU`, `YOLO_AGNOSTIC_NMS`, optional `POST_NMS` | Same knobs + `MODEL_PATH` |
 | Config | Fixed in code | Env + YAML |
 
